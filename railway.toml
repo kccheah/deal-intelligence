@@ -1,0 +1,15 @@
+[build]
+builder = "dockerfile"
+dockerfile = "Dockerfile"
+
+[deploy]
+numReplicas = 1
+startCommand = "uvicorn main:app --host 0.0.0.0 --port $PORT"
+
+[[services]]
+name = "api"
+buildCommand = "pip install -r requirements.txt"
+
+[[services]]
+name = "postgres"
+image = "postgres:15-alpine"

@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: deal-intel-postgres
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+      POSTGRES_DB: deal_intelligence
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./001_initial_schema.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - deal-intel-network
+
+  # FastAPI Backend
+  api:
+    build: .
+    container_name: deal-intel-api
+    environment:
+      DATABASE_URL: postgresql://admin:admin123@postgres:5432/deal_intelligence
+      SECRET_KEY: dev-secret-key-change-in-production
+      DEBUG: "true"
+      CORS_ORIGINS: "http://localhost:3000,http://localhost:8000"
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      NEWSAPI_KEY: ${NEWSAPI_KEY}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - deal-intel-network
+
+  # Redis (optional, for caching)
+  redis:
+    image: redis:7-alpine
+    container_name: deal-intel-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - deal-intel-network
+
+volumes:
+  postgres_data:
+
+networks:
+  deal-intel-network:
+    driver: bridge
